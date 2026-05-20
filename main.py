@@ -1,0 +1,1 @@
+print("Federated learning project initialized")
