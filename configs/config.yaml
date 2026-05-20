@@ -12,7 +12,7 @@ model:
 training:
   epochs: 5
   learning_rate: 0.001
-  device: "cpu"
+  device: "cuda"
 
 paths:
   data_dir: "./data"
