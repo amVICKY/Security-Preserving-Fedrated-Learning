@@ -1,6 +1,8 @@
 project:
   name: "Privacy Preserving Federated Learning"
 
+seed: 42
+
 dataset:
   name: "MNIST"
   batch_size: 64
