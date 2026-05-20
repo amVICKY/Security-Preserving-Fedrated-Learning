@@ -1,12 +1,20 @@
-batch_size: 64
-learning_rate: 0.001
-epochs: 5
+project:
+  name: "Privacy Preserving Federated Learning"
 
 dataset:
-  name: MNIST
+  name: "MNIST"
+  batch_size: 64
+  num_workers: 2
 
 model:
   num_classes: 10
 
 training:
-  device: cpu
+  epochs: 5
+  learning_rate: 0.001
+  device: "cpu"
+
+paths:
+  data_dir: "./data"
+  checkpoint_dir: "./checkpoints"
+  log_dir: "./logs"
