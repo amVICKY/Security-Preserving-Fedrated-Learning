@@ -12,7 +12,7 @@ def serialize_weights(weights):
 def deserialize_weights(weights):
 
     deserialize = {}
-    for key,value in weights.item():
+    for key,value in weights.items():
         deserialize[key] = torch.tensor(value)
     
     return deserialize

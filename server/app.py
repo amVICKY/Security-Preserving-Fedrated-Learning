@@ -21,4 +21,12 @@ def get_model():
         "weights":weights
     }
 
+@app.post("/send_update")
+def receive_update(update:dict):
+    
+    print("\nReceived client update")
+    return {
+        "status":"update received"
+    }
+
 print("Hello")
