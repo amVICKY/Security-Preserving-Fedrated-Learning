@@ -10,3 +10,6 @@ class ModelManger:
     
     def get_weights(self):
         return self.model.state_dict()
+    
+    def set_weights(self,weights):
+        self.model.load_state_dict(weights)
