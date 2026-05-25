@@ -24,4 +24,5 @@ paths:
 federated:
   num_clients: 3
   num_rounds: 3
-  local_epochs: 5
+  local_epochs: 2
+  

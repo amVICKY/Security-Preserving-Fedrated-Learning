@@ -13,7 +13,7 @@ def main():
         processes = []
         for client_id in range(num_clients):
             process = subprocess.Popen(
-                ["python","-m","client.client"]
+                ["python","-m","client.client",str(client_id)]
             )
             processes.append(process)
     

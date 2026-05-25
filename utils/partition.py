@@ -20,9 +20,30 @@ train_dataset = datasets.MNIST(
         transform=transform
     )
 
-def create_non_iid_partition(dataset,num_clients):
+def create_non_iid_partition(dataset, num_clients):
+    
     labels = np.array(dataset.targets)
-    print(labels)
-    print(len(labels))
+    num_target = len(np.unique(labels))
+    client_indices = []
+    classes_per_client = num_target // num_clients
+    for client_id in range(num_clients):
+        start_class = (client_id * classes_per_client) % num_target
+        client_classes = list(
+            range(
+                start_class,
+                start_class + classes_per_client
+            )
+        )
+        client_classes = [
+            c % num_target
+            for c in client_classes
+        ]
+        indices = np.where(
+            np.isin(labels, client_classes)
+        )[0]
+        client_indices.append(indices)
+    return client_indices
+
+    # print(classes_per_client)
 
 create_non_iid_partition(train_dataset,9)
