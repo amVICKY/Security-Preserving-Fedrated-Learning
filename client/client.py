@@ -44,7 +44,8 @@ def main():
         model,
         train_loader,
         test_loader,
-        device
+        device,
+        config["federated"]["local_epochs"]
     )
 
     print("Local training Completed")

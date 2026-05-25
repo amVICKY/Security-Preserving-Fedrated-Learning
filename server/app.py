@@ -3,10 +3,14 @@ from server.model_manager import ModelManger
 from communication.serialization import serialize_weights
 from communication.serialization import deserialize_weights
 from server.aggregator import federated_averaging
+from utils.config import load_config
 
 app = FastAPI()
 model_manager = ModelManger()
+config = load_config()
 client_updates = []
+
+NUM_CLIENTS = config["federated"]["num_clients"]
 
 @app.get("/")
 def root():
@@ -35,12 +39,27 @@ def receive_update(update:dict):
     client_updates.append(weights)
     print(
         f"\nReceived update"
-        f"from client"
-        f"({len(client_updates)} total)"
+        f"({len(client_updates)}/{NUM_CLIENTS})"
     )
 
+    if len(client_updates) == NUM_CLIENTS:
+        
+        print("Aggregrating global model")
+        aggregate_weights = federated_averaging(
+            client_updates
+        )
+        model_manager.set_weights(
+            aggregate_weights
+        )
+        client_updates = []
+        print("Global model updated")
+        
+        return {
+            "status":"aggregation completed"
+        }
+
     return {
-        "status":"update received"
+        "status":"waiting for more clients"
     }
 
 @app.post("/aggregate")
