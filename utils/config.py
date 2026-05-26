@@ -1,6 +1,6 @@
 import yaml
 
-configuration_path = r"D:\INTERNSHIP_PROJECT\secure_federated_learning\configs\config.yaml"
+configuration_path = r"C:\Security-Preserving-Fedrated-Learning\configs\config.yaml"
 
 def load_config(config_path=configuration_path):
     with open(config_path,"r") as file:
