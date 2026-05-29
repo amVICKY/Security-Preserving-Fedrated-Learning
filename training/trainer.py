@@ -34,4 +34,5 @@ def train(model,train_loader,criterion,optimizer,device):
     
     epoch_loss = running_loss/len(train_loader)
     accuracy = 100 * correct / total
+    print("inside trainer")
     return epoch_loss, accuracy

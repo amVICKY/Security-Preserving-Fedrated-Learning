@@ -16,13 +16,15 @@ from training.evaluator import evaluate
 
 def main():
 
+    print("="*50)
     config = load_config()
     logger = setup_logger()
     # device = config["training"]["device"]
     device = ("cuda" if torch.cuda.is_available() else "cpu")
+    print("="*50)
 
     set_seed(config["seed"])
-    
+
     logger.info(f"Using Device: {device}")
     train_loader, test_loader = get_dataloaders(config)
     model = CNN(

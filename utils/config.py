@@ -9,4 +9,3 @@ def load_config(config_path=configuration_path):
     return config
 
 traing_dict = load_config()
-print(traing_dict["training"]["epochs"])

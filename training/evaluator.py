@@ -24,5 +24,5 @@ def evaluate(model, test_loader, criterion, device):
     
     epoch_loss = running_loss/ len(test_loader)
     accuracy = 100 * correct/total
-
+    print("inside evalutor")
     return epoch_loss, accuracy
