@@ -17,6 +17,14 @@ from communication.delta import compute_delta
 
 SERVER_URL = "http://127.0.0.1:8000"
 
+def get_leader_url(node,peer_table):
+    leader = peer_table.get_cluster_leader(node.cluster_id)
+    if leader is None:
+        return None
+    return (
+        f"http://{leader.ip}:{leader.port}"
+    )
+
 def download_global_model():
 
     response = requests.get(
@@ -35,7 +43,10 @@ def upload_local_update(weights):
     )
     return respons.json()
 
-def main(client_id=0):
+def main(client_id,node,peer_table):
+
+    leader_url = get_leader_url(node,peer_table)
+    print(f"Leader URL:{leader_url}")
     
     config = load_config()
     device = ("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,4 +90,4 @@ def main(client_id=0):
 
 if __name__ == "__main__":
     client_id = int(sys.argv[1])
-    main(client_id)
+    # main(client_id)

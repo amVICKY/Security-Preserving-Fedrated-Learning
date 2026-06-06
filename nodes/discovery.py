@@ -21,6 +21,12 @@ class DiscoveryService:
                 "node_id":self.node.node_id,
                 "ip":self.node.ip,
                 "port":self.node.port,
+
+                "cluster_id":self.node.cluster_id,
+
+                "region":self.node.region,
+                "simulated_latency":self.node.simulated_latency,
+                "role":self.node.role
             }
             data = json.dumps(message).encode()
             sock.sendto(data,("255.255.255.255",self.DISCOVERY_PORT ))
@@ -45,19 +51,23 @@ class DiscoveryService:
                 node_id=message["node_id"],
                 ip = message["ip"],
                 port=message["port"],
-                last_seen=datetime.now()
+                last_seen=datetime.now(),
+
+                cluster_id=message["cluster_id"],
+
+                region=message["region"],
+                simulated_latency=message["simulated_latency"],
+                role=message["role"]
             )
 
-            # self.peer_table.add_peer(peer)
-            # print(f"Discovered {peer.node_id} \n at {peer.ip}:{peer.port}")
             if peer.node_id in self.peer_table.peers:
                 self.peer_table.update_peer(peer.node_id)
                 print(f"Updated the last_seen time of {peer.node_id} at {peer.ip}:{peer.port}")
             else:
                 self.peer_table.add_peer(peer)
-                print(f"Discovered {peer.node_id} at {peer.ip}:{peer.port}")
-
-    
+                print(f"Discovered peer:{peer.node_id} | Role:{peer.role} | Cluster:{peer.cluster_id}") # The surrounding
+            print(f"My role: {self.node.role} | Cluster: {self.node.cluster_id}")
+            
     def cleanup(self):
         while True:
             now = datetime.now()
@@ -68,7 +78,21 @@ class DiscoveryService:
                     self.peer_table.remove_peer(peer.node_id)
             time.sleep(5)
     
+    def leader_lookup(self):
+        while True:
+            print("!"*10+"Alert Alert Finding leader Finding leader"+"!"*10)
+            if self.node.role == "worker":
+                leader = self.peer_table.get_cluster_leader(self.node.cluster_id)
+                if leader is not None:
+                    print(f"Cluser Leader found -> leader:{leader.node_id} | Address: {leader.ip}:{leader.port}")
+                else:
+                    print(f"No leader found yet for cluster_id:{self.node.cluster_id}")
+            elif self.node.role == "leader":
+                print(f"I am the leader of Cluster_id:{self.node.cluster_id}")
+            time.sleep(5)
+
     def start(self):
         threading.Thread(target=self.advertise,daemon=True).start()
         threading.Thread(target=self.browse,daemon=True).start()
         threading.Thread(target=self.cleanup,daemon=True).start()
+        # threading.Thread(target=self.leader_lookup,daemon=True).start()

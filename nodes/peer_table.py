@@ -26,3 +26,9 @@ class PeerTable:
         
     def get_peer(self,node_id):
         return self.peers.get(node_id)
+    
+    def get_cluster_leader(self,cluster_id):
+        for peer in self.peers.values():
+            if (peer.cluster_id == cluster_id and peer.role == "leader"):
+                return peer
+        return None
