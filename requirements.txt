@@ -5,9 +5,6 @@ tqdm
 fastapi
 uvicorn
 matplotlib
-torch
-torchvision
-torchaudio
 requests
 
 # Delete the torch library and install cuda enable version of torch of web if you want gpu aceleration

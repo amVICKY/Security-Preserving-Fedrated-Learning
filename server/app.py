@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from server.model_manager import ModelManger
 from communication.serialization import serialize_weights
 from communication.serialization import deserialize_weights
-from server.aggregator import federated_averaging
+from server.aggregator import poly_aggregation
 from utils.config import load_config
-from communication.delta import apply_delta
+from communication.delta import apply_delta, compute_delta
 from evalution.evaluate import evaluate_model
 from data.dataset import get_dataloaders
 
@@ -58,8 +58,14 @@ def receive_update(update:dict):
         print("Aggregrating global model")
         global_weights = model_manager.get_weights()
 
-        averaged_delta = federated_averaging(
-            client_updates
+        client_deltas = [
+            compute_delta(global_weights, update)
+            for update in client_updates
+        ]
+
+        averaged_delta = poly_aggregation(
+            client_deltas,
+            sample_ratio=config["federated"].get("sample_ratio", 1.0)
         )
         updated_weights = apply_delta(
             global_weights,averaged_delta
@@ -103,12 +109,22 @@ def aggregate_updates():
         return{
             "status":"no updates received"
         }
-    
-    aggregated_weights = federated_averaging(
-        client_updates
+
+    global_weights = model_manager.get_weights()
+    client_deltas = [
+        compute_delta(global_weights, update)
+        for update in client_updates
+    ]
+
+    averaged_delta = poly_aggregation(
+        client_deltas,
+        sample_ratio=config["federated"].get("sample_ratio", 1.0)
+    )
+    updated_weights = apply_delta(
+        global_weights, averaged_delta
     )
     model_manager.set_weights(
-        aggregated_weights
+        updated_weights
     )
 
     client_updates = []

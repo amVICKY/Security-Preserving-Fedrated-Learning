@@ -25,4 +25,5 @@ federated:
   num_clients: 3
   num_rounds: 3
   local_epochs: 2
+  sample_ratio: 0.5
   
