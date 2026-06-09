@@ -1,8 +1,10 @@
 from fastapi import FastAPI
+from communication.model_sync import ModelSync
 from server.coordinator import (
     FederatedCoordinator
 )
 
+SERVER_URL = ("http://127.0.0.1:8000")
 class LeaderService:
 
     def __init__(
@@ -12,8 +14,10 @@ class LeaderService:
     ):
         self.node = node
         self.peer_table = peer_table
-        
+        self.global_weights = ModelSync.download_model(SERVER_URL)
+
         self.coordinator = (FederatedCoordinator())
+        self.coordinator.set_global_weights(self.global_weights)
 
         self.app = FastAPI()
         self.setup_routes()

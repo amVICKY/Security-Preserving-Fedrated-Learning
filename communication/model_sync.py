@@ -21,3 +21,12 @@ class ModelSync:
             }
         )
         return response.json()
+    
+    @staticmethod
+    def upload_cluster_update(url,delta):
+        requests.post(
+            f"{url}/cluster_update",
+            json = {
+                "weights":serialize_weights(delta)
+            }
+        )

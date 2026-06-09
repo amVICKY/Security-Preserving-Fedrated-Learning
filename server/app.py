@@ -5,6 +5,7 @@ from server.coordinator import (
 
 app = FastAPI()
 coordinator = FederatedCoordinator()
+cluster_updates = []
 
 @app.get("/")
 def root():
@@ -23,3 +24,12 @@ def receive_update(update:dict):
 @app.post("/aggregate")
 def aggregate_updates():
     return coordinator.aggregate_updates()
+
+@app.post("/cluster_update")
+def cluster_update(update:dict):
+    global cluster_updates
+    cluster_updates.append(update)
+    print(f"Received cluster update ({len(cluster_updates)})")
+    return {
+        "status":"received"
+    }

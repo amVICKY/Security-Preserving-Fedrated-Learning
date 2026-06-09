@@ -13,6 +13,9 @@ from communication.delta import apply_delta
 from evalution.evaluate import evaluate_model
 from data.dataset import get_dataloaders
 
+from communication.model_sync import ModelSync
+
+GLOBAL_SERVER_URL = "http://127.0.0.1:8000"
 class FederatedCoordinator:
     
     def __init__(self):
@@ -35,6 +38,15 @@ class FederatedCoordinator:
             "weights":weights
         }
     
+    def set_global_weights(self,weights):
+        self.model_manager.set_weights(weights)
+
+    def send_cluster_update(self,averaged_delta):
+        try:
+            reponse = ModelSync.upload_cluster_update(GLOBAL_SERVER_URL,averaged_delta)
+        except Exception as e:
+            print(f"Unable to send cluster update:{e}")
+
     def receive_update(self,update:dict):
         weights = deserialize_weights(update["weights"])
         self.client_updates.append(weights)
@@ -45,6 +57,7 @@ class FederatedCoordinator:
             
             global_weights = (self.model_manager.get_weights())
             averaged_delta = (federated_averaging(self.client_updates))
+            self.send_cluster_update(averaged_delta)
             updated_weights = (apply_delta(global_weights,averaged_delta))
 
             self.model_manager.set_weights(updated_weights)
