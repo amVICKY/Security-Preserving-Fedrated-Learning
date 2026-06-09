@@ -8,6 +8,8 @@ from .peer_table import PeerTable
 from .discovery import DiscoveryService
 import time
 
+from client.client import FederatedClient
+
 @dataclass # This help automatically generates the special boilerplate method like __init__(),__repr__()
 class Node:
     node_id: str
@@ -61,15 +63,27 @@ if __name__ == "__main__":
         peer_table=peer_table
     )
     discovery.start()
-    print(f"Started {node}")
+    # print(f"Started {node}")
+    from server.leader_service import LeaderService
+    import uvicorn
+
+    if node.role == "leader":
+        leader_service = LeaderService(node=node,peer_table=peer_table)
+        uvicorn.run(leader_service.app,host="0.0.0.0",port=node.port)
+    elif node.role == "worker":
+        client = FederatedClient(
+            client_id=0,
+            node=node,
+            peer_table=peer_table
+        )
+
     while True:
         leader = peer_table.get_cluster_leader(node.cluster_id)
         if leader:
-            print(f"Leader Found:{leader.ip}:{leader.port}")
-
+            client.run()
+            break
+        print("Waiting for leader")
         time.sleep(5)
-    
-
     # nodes = [Node(str(uuid.uuid4()),ip="127.0.0.1",port=(5000+i),last_seen=datetime.now()) for i in range(5)]
     # for node in nodes:
     #     print(node)
