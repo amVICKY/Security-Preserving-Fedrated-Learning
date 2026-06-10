@@ -14,6 +14,9 @@ from evalution.evaluate import evaluate_model
 from data.dataset import get_dataloaders
 
 from communication.model_sync import ModelSync
+from communication.protocol import (
+    PROTOCOL_VERSION
+)
 
 GLOBAL_SERVER_URL = "http://127.0.0.1:8000"
 class FederatedCoordinator:
@@ -35,6 +38,7 @@ class FederatedCoordinator:
         )
         weights = serialize_weights(weights)
         return {
+            "protocol_version":PROTOCOL_VERSION,
             "weights":weights
         }
     
@@ -48,6 +52,12 @@ class FederatedCoordinator:
             print(f"Unable to send cluster update:{e}")
 
     def receive_update(self,update:dict):
+
+        if(update["protocol_version"] != PROTOCOL_VERSION):
+            return {
+                "status":"protocol mismatch"
+            }
+
         weights = deserialize_weights(update["weights"])
         self.client_updates.append(weights)
         print(f"\nReceived updates {len(self.client_updates)}/{self.num_clients}")

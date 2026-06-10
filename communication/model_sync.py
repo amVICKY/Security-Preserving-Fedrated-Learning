@@ -3,13 +3,20 @@ from communication.serialization import (
     deserialize_weights,
     serialize_weights
 )
+from communication.protocol import  (
+    PROTOCOL_VERSION
+)
 
 class ModelSync:
     
     @staticmethod
     def download_model(url):
         response = requests.get(f"{url}/get_model")
-        weights = response.json()["weights"]
+        payload = response.json()
+        if payload["protocol_version"] != PROTOCOL_VERSION:
+            raise RuntimeError("Protocol version mismatch")
+        weights = payload["weights"]
+
         return deserialize_weights(weights)
     
     @staticmethod
@@ -17,6 +24,7 @@ class ModelSync:
         response = requests.post(
             f"{url}/send_update",
             json={
+                "protocol_version":PROTOCOL_VERSION,
                 "weights":serialize_weights(weights)
             }
         )
@@ -27,6 +35,7 @@ class ModelSync:
         requests.post(
             f"{url}/cluster_update",
             json = {
+                "protocol_version":PROTOCOL_VERSION,
                 "weights":serialize_weights(delta)
             }
         )

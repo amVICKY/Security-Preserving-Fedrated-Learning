@@ -10,6 +10,10 @@ import time
 
 from client.client import FederatedClient
 
+from communication.registry import (
+    register_node
+)
+
 @dataclass # This help automatically generates the special boilerplate method like __init__(),__repr__()
 class Node:
     node_id: str
@@ -57,6 +61,7 @@ if __name__ == "__main__":
         simulated_latency=args.latency,
         role = args.role,
     )
+    register_node(node)
     peer_table = PeerTable()
     discovery = DiscoveryService(
         node = node,
