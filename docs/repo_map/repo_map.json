@@ -1,0 +1,957 @@
+{
+  "repo_root": "secure_federated_learning",
+  "file_count": 34,
+  "total_loc": 1312,
+  "files": [
+    {
+      "path": "backup_codes/backup_app(server).py",
+      "package": "backup_codes",
+      "purpose": "functions root, get_model, receive_update, aggregate_updates",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "root",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "get_model",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "receive_update",
+          "args": [
+            "update"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "aggregate_updates",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "communication.delta",
+        "communication.serialization",
+        "evalution.evaluate",
+        "server.aggregator",
+        "server.model_manager",
+        "utils.config"
+      ],
+      "imports_external": [
+        "data",
+        "fastapi",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 119
+    },
+    {
+      "path": "client/__init__.py",
+      "package": "client",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 4
+    },
+    {
+      "path": "client/backup_client_code.py",
+      "package": "client",
+      "purpose": "functions download_global_model, upload_local_update, main",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "download_global_model",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "upload_local_update",
+          "args": [
+            "weights"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "main",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "client.local_trainer",
+        "communication.serialization",
+        "models.cnn",
+        "utils.config"
+      ],
+      "imports_external": [
+        "data",
+        "requests",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 62
+    },
+    {
+      "path": "client/client.py",
+      "package": "client",
+      "purpose": "Defines class FederatedClient",
+      "doc": "",
+      "classes": [
+        {
+          "name": "FederatedClient",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "get_leader_url",
+            "resolve_target_url",
+            "train_round",
+            "run"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "client.local_trainer",
+        "communication.delta",
+        "communication.model_sync",
+        "communication.serialization",
+        "models.cnn",
+        "utils.config",
+        "utils.partition"
+      ],
+      "imports_external": [
+        "data",
+        "requests",
+        "sys",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 87
+    },
+    {
+      "path": "client/local_trainer.py",
+      "package": "client",
+      "purpose": "function local_train",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "local_train",
+          "args": [
+            "model",
+            "train_loader",
+            "test_loader",
+            "device",
+            "local_epochs"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "training.evaluator",
+        "training.trainer"
+      ],
+      "imports_external": [
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 36
+    },
+    {
+      "path": "communication/__init__.py",
+      "package": "communication",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 4
+    },
+    {
+      "path": "communication/delta.py",
+      "package": "communication",
+      "purpose": "functions compute_delta, apply_delta",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "compute_delta",
+          "args": [
+            "global_weights",
+            "local_weights"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "apply_delta",
+          "args": [
+            "global_weights",
+            "averaged_delta"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "copy"
+      ],
+      "imports_missing": [],
+      "loc": 15
+    },
+    {
+      "path": "communication/model_sync.py",
+      "package": "communication",
+      "purpose": "Defines class ModelSync",
+      "doc": "",
+      "classes": [
+        {
+          "name": "ModelSync",
+          "bases": [],
+          "methods": [
+            "download_model",
+            "upload_update",
+            "upload_cluster_update"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "communication.protocol",
+        "communication.serialization"
+      ],
+      "imports_external": [
+        "requests"
+      ],
+      "imports_missing": [],
+      "loc": 41
+    },
+    {
+      "path": "communication/protocol.py",
+      "package": "communication",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 1
+    },
+    {
+      "path": "communication/registry.py",
+      "package": "communication",
+      "purpose": "function register_node",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "register_node",
+          "args": [
+            "node"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "requests"
+      ],
+      "imports_missing": [],
+      "loc": 23
+    },
+    {
+      "path": "communication/serialization.py",
+      "package": "communication",
+      "purpose": "functions serialize_weights, deserialize_weights",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "serialize_weights",
+          "args": [
+            "weights"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "deserialize_weights",
+          "args": [
+            "encoded_weights"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "base64",
+        "io",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 21
+    },
+    {
+      "path": "communication/updates.py",
+      "package": "communication",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 1
+    },
+    {
+      "path": "evalution/evaluate.py",
+      "package": "evalution",
+      "purpose": "function evaluate_model",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "evaluate_model",
+          "args": [
+            "model",
+            "test_loader",
+            "criterion",
+            "device"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 29
+    },
+    {
+      "path": "inference.py",
+      "package": "(root)",
+      "purpose": "function main",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "models.cnn"
+      ],
+      "imports_external": [
+        "torch",
+        "torchvision"
+      ],
+      "imports_missing": [],
+      "loc": 53
+    },
+    {
+      "path": "main.py",
+      "package": "(root)",
+      "purpose": "function main",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "models.cnn",
+        "training.evaluator",
+        "training.trainer",
+        "utils.checkpoint",
+        "utils.config",
+        "utils.logger",
+        "utils.seed"
+      ],
+      "imports_external": [
+        "data",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 82
+    },
+    {
+      "path": "models/cnn.py",
+      "package": "models",
+      "purpose": "Defines class CNN",
+      "doc": "",
+      "classes": [
+        {
+          "name": "CNN",
+          "bases": [
+            "nn.Module"
+          ],
+          "methods": [
+            "__init__",
+            "__str__",
+            "forward"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 44
+    },
+    {
+      "path": "nodes/__init__.py",
+      "package": "nodes",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 1
+    },
+    {
+      "path": "nodes/discovery.py",
+      "package": "nodes",
+      "purpose": "Defines class DiscoveryService",
+      "doc": "",
+      "classes": [
+        {
+          "name": "DiscoveryService",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "advertise",
+            "browse",
+            "cleanup",
+            "leader_lookup",
+            "start"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "nodes.node"
+      ],
+      "imports_external": [
+        "datetime",
+        "json",
+        "socket",
+        "threading",
+        "time"
+      ],
+      "imports_missing": [],
+      "loc": 98
+    },
+    {
+      "path": "nodes/node.py",
+      "package": "nodes",
+      "purpose": "Defines class Node",
+      "doc": "",
+      "classes": [
+        {
+          "name": "Node",
+          "bases": [],
+          "methods": [
+            "update_last_seen",
+            "__str__"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "client.client",
+        "communication.registry",
+        "nodes.discovery",
+        "nodes.peer_table",
+        "server.leader_service"
+      ],
+      "imports_external": [
+        "argparse",
+        "dataclasses",
+        "datetime",
+        "time",
+        "typing",
+        "uuid",
+        "uvicorn"
+      ],
+      "imports_missing": [],
+      "loc": 96
+    },
+    {
+      "path": "nodes/peer_table.py",
+      "package": "nodes",
+      "purpose": "Defines class PeerTable",
+      "doc": "",
+      "classes": [
+        {
+          "name": "PeerTable",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "add_peer",
+            "update_peer",
+            "remove_peer",
+            "list_peer",
+            "get_peer",
+            "get_cluster_leader"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [
+        "datetime"
+      ],
+      "imports_missing": [],
+      "loc": 35
+    },
+    {
+      "path": "run_federated.py",
+      "package": "(root)",
+      "purpose": "function main",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "utils.config"
+      ],
+      "imports_external": [
+        "subprocess",
+        "time"
+      ],
+      "imports_missing": [],
+      "loc": 27
+    },
+    {
+      "path": "server/__init__.py",
+      "package": "server",
+      "purpose": "(no top-level docstring or symbols)",
+      "doc": "",
+      "classes": [],
+      "functions": [],
+      "imports_internal": [],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 5
+    },
+    {
+      "path": "server/aggregator.py",
+      "package": "server",
+      "purpose": "function federated_averaging",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "federated_averaging",
+          "args": [
+            "client_weights"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "copy",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 17
+    },
+    {
+      "path": "server/app.py",
+      "package": "server",
+      "purpose": "functions root, get_model, receive_update, register_node",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "root",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "get_model",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "receive_update",
+          "args": [
+            "update"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "register_node",
+          "args": [
+            "node_info"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "get_registered_nodes",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "aggregate_updates",
+          "args": [],
+          "doc": ""
+        },
+        {
+          "name": "cluster_update",
+          "args": [
+            "update"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "get_registered_updates",
+          "args": [],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "communication.protocol",
+        "server.coordinator"
+      ],
+      "imports_external": [
+        "fastapi"
+      ],
+      "imports_missing": [],
+      "loc": 67
+    },
+    {
+      "path": "server/coordinator.py",
+      "package": "server",
+      "purpose": "Defines class FederatedCoordinator",
+      "doc": "",
+      "classes": [
+        {
+          "name": "FederatedCoordinator",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "get_model",
+            "set_global_weights",
+            "send_cluster_update",
+            "receive_update",
+            "aggregate_updates"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "communication.delta",
+        "communication.model_sync",
+        "communication.protocol",
+        "communication.serialization",
+        "evalution.evaluate",
+        "server.aggregator",
+        "server.model_manager",
+        "utils.config"
+      ],
+      "imports_external": [
+        "data",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 113
+    },
+    {
+      "path": "server/leader_service.py",
+      "package": "server",
+      "purpose": "Defines class LeaderService",
+      "doc": "",
+      "classes": [
+        {
+          "name": "LeaderService",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "setup_routes"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "communication.model_sync",
+        "server.coordinator"
+      ],
+      "imports_external": [
+        "fastapi"
+      ],
+      "imports_missing": [],
+      "loc": 47
+    },
+    {
+      "path": "server/model_manager.py",
+      "package": "server",
+      "purpose": "Defines class ModelManger",
+      "doc": "",
+      "classes": [
+        {
+          "name": "ModelManger",
+          "bases": [],
+          "methods": [
+            "__init__",
+            "get_model",
+            "get_weights",
+            "set_weights"
+          ],
+          "doc": ""
+        }
+      ],
+      "functions": [],
+      "imports_internal": [
+        "models.cnn"
+      ],
+      "imports_external": [],
+      "imports_missing": [],
+      "loc": 15
+    },
+    {
+      "path": "training/evaluator.py",
+      "package": "training",
+      "purpose": "function evaluate",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "evaluate",
+          "args": [
+            "model",
+            "test_loader",
+            "criterion",
+            "device"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 28
+    },
+    {
+      "path": "training/trainer.py",
+      "package": "training",
+      "purpose": "function train",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "train",
+          "args": [
+            "model",
+            "train_loader",
+            "criterion",
+            "optimizer",
+            "device"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "torch",
+        "tqdm"
+      ],
+      "imports_missing": [],
+      "loc": 39
+    },
+    {
+      "path": "utils/checkpoint.py",
+      "package": "utils",
+      "purpose": "functions save_checkpoint, load_checkpoint",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "save_checkpoint",
+          "args": [
+            "model",
+            "path"
+          ],
+          "doc": ""
+        },
+        {
+          "name": "load_checkpoint",
+          "args": [
+            "model",
+            "path"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "os",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 10
+    },
+    {
+      "path": "utils/config.py",
+      "package": "utils",
+      "purpose": "function load_config",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "load_config",
+          "args": [
+            "config_path"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "yaml"
+      ],
+      "imports_missing": [],
+      "loc": 12
+    },
+    {
+      "path": "utils/logger.py",
+      "package": "utils",
+      "purpose": "function setup_logger",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "setup_logger",
+          "args": [
+            "log_dir"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "logging",
+        "os"
+      ],
+      "imports_missing": [],
+      "loc": 19
+    },
+    {
+      "path": "utils/partition.py",
+      "package": "utils",
+      "purpose": "function create_non_iid_partition",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "create_non_iid_partition",
+          "args": [
+            "dataset",
+            "num_clients"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [
+        "utils.config"
+      ],
+      "imports_external": [
+        "numpy",
+        "torch",
+        "torchvision"
+      ],
+      "imports_missing": [],
+      "loc": 49
+    },
+    {
+      "path": "utils/seed.py",
+      "package": "utils",
+      "purpose": "function set_seed",
+      "doc": "",
+      "classes": [],
+      "functions": [
+        {
+          "name": "set_seed",
+          "args": [
+            "seed"
+          ],
+          "doc": ""
+        }
+      ],
+      "imports_internal": [],
+      "imports_external": [
+        "numpy",
+        "random",
+        "torch"
+      ],
+      "imports_missing": [],
+      "loc": 12
+    }
+  ],
+  "package_edges": {
+    "backup_codes": [
+      "communication",
+      "evalution",
+      "server",
+      "utils"
+    ],
+    "client": [
+      "communication",
+      "models",
+      "training",
+      "utils"
+    ],
+    "(root)": [
+      "models",
+      "training",
+      "utils"
+    ],
+    "nodes": [
+      "client",
+      "communication",
+      "server"
+    ],
+    "server": [
+      "communication",
+      "evalution",
+      "models",
+      "utils"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+graph LR
+    root["(root)"]
+    backup_codes["backup_codes"]
+    client["client"]
+    communication["communication"]
+    evalution["evalution"]
+    models["models"]
+    nodes["nodes"]
+    server["server"]
+    training["training"]
+    utils["utils"]
+    root --> models
+    root --> training
+    root --> utils
+    backup_codes --> communication
+    backup_codes --> evalution
+    backup_codes --> server
+    backup_codes --> utils
+    client --> communication
+    client --> models
+    client --> training
+    client --> utils
+    nodes --> client
+    nodes --> communication
+    nodes --> server
+    server --> communication
+    server --> evalution
+    server --> models
+    server --> utils
