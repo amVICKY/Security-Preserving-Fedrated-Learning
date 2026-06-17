@@ -1,0 +1,32 @@
+services:
+
+  server:
+    build: .
+    container_name: fl_server
+
+    command: python server/start_server.py
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - federated-net
+
+  client:
+    build: .
+
+    command: python -m client.client
+
+    environment:
+      SERVER_HOST: server
+      SERVER_PORT: 8000
+
+    depends_on:
+      - server
+
+    networks:
+      - federated-net
+
+networks:
+  federated-net:
+    driver: bridge

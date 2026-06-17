@@ -1,11 +1,18 @@
 import yaml
+import os
 
-configuration_path = r"C:\Security-Preserving-Fedrated-Learning\configs\config.yaml"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+configuration_path = os.path.join(
+    BASE_DIR,
+    "configs",
+    "config.yaml"
+)
 
 def load_config(config_path=configuration_path):
-    with open(config_path,"r") as file:
+    with open(config_path, "r") as file:
         config = yaml.safe_load(file)
-    
+
     return config
 
-traing_dict = load_config()
+training_dict = load_config()
