@@ -7,7 +7,7 @@ def register_node(node):
         "node_id":node.node_id,
         "ip":node.ip,
         "port":node.port,
-        "role":node.role,
+        "consensus_state":node.consensus_state,
         "cluster_id":node.cluster_id
     }
 

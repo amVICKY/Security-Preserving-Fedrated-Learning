@@ -25,25 +25,32 @@ class FederatedClient:
         self,
         client_id,
         node,
-        peer_table
+        peer_table,
+        consensus
     ):
         self.client_id = client_id
         self.node = node
         self.peer_table = peer_table
+        self.consensus = consensus
         self.config = load_config()
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
         self.target_url = self.resolve_target_url()
 
     def get_leader_url(self):
-        leader = self.peer_table.get_cluster_leader(self.node.cluster_id)
+        leader_id = self.consensus.get_leader()
+        if leader_id is None:
+            return None
+        
+        leader = self.peer_table.get_peer(leader_id)
         if leader is None:
             return None
-        return (f"http://{leader.ip}:{leader.port}")
+        
+        return (f"http://{leader.ip}:{leader.api_port}")
 
     def resolve_target_url(self):
-        if self.node.role == "leader":
+        if self.node.consensus_state == "leader":
             return SERVER_URL
-        if self.node.role == "worker":
+        if self.node.consensus_state == "follower":
             return self.get_leader_url()
         return None
     
@@ -76,7 +83,7 @@ class FederatedClient:
         print(response)
 
     def run(self):
-        print(f"Node Role:{self.node.role}")
+        print(f"Node Role:{self.node.consemsus_state}")
         print(f"Cluster:{self.node.cluster_id}")
 
         target_url = (self.resolve_target_url())

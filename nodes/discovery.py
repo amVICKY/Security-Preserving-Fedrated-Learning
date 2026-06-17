@@ -21,12 +21,13 @@ class DiscoveryService:
                 "node_id":self.node.node_id,
                 "ip":self.node.ip,
                 "port":self.node.port,
+                "api_port":self.node.api_port,
 
                 "cluster_id":self.node.cluster_id,
 
                 "region":self.node.region,
                 "simulated_latency":self.node.simulated_latency,
-                "role":self.node.role
+                "consensus_state":self.node.consensus_state
             }
             data = json.dumps(message).encode()
             sock.sendto(data,("255.255.255.255",self.DISCOVERY_PORT ))
@@ -51,13 +52,14 @@ class DiscoveryService:
                 node_id=message["node_id"],
                 ip = message["ip"],
                 port=message["port"],
+                api_port=message["api_port"],
                 last_seen=datetime.now(),
 
                 cluster_id=message["cluster_id"],
 
                 region=message["region"],
                 simulated_latency=message["simulated_latency"],
-                role=message["role"]
+                consensus_state=message["consensus_state"]
             )
 
             if peer.node_id in self.peer_table.peers:
@@ -65,8 +67,8 @@ class DiscoveryService:
                 print(f"Updated the last_seen time of {peer.node_id} at {peer.ip}:{peer.port}")
             else:
                 self.peer_table.add_peer(peer)
-                print(f"Discovered peer:{peer.node_id} | Role:{peer.role} | Cluster:{peer.cluster_id}") # The surrounding
-            print(f"My role: {self.node.role} | Cluster: {self.node.cluster_id}")
+                print(f"Discovered peer:{peer.node_id} | Consensus_state:{peer.consensus_state} | Cluster:{peer.cluster_id}") # The surrounding
+            print(f"My role: {self.node.consensus_state} | Cluster: {self.node.cluster_id}")
             
     def cleanup(self):
         while True:

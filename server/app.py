@@ -31,7 +31,7 @@ def register_node(node_info:dict):
     node_id = node_info["node_id"]
     registered_nodes[node_id] = node_info
 
-    print(f"Registered node: Node id:{node_id}| Role:{node_info['role']} | Cluster:{node_info['cluster_id']}")
+    print(f"Registered node: Node id:{node_id}| Role:{node_info.get('consensus_state')} | Cluster:{node_info.get('cluster_id')}")
     return {
         "status":"registered"
     }
