@@ -7,7 +7,9 @@ def register_node(node):
         "node_id":node.node_id,
         "ip":node.ip,
         "port":node.port,
+        "api_port":node.api_port,
         "consensus_state":node.consensus_state,
+        "latency":node.simulated_latency,
         "cluster_id":node.cluster_id
     }
 
@@ -17,6 +19,7 @@ def register_node(node):
             json=payload,
             timeout = 3
         )
+
         return response.json()
     
     except Exception:

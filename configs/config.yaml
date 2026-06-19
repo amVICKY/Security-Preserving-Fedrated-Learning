@@ -6,7 +6,7 @@ seed: 42
 dataset:
   name: "MNIST"
   batch_size: 64
-  num_workers: 2
+  num_workers: 0
 
 model:
   num_classes: 10

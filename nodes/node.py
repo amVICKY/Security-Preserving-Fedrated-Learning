@@ -4,17 +4,15 @@ from datetime import datetime
 import uuid
 from typing import Optional
 import time
+import threading
+import uvicorn
 
 from .peer_table import PeerTable
 from .discovery import DiscoveryService
 from .consensus import ClusterConsensus
 
 from client.client import FederatedClient
-
-from communication.registry import (
-    register_node
-)
-
+from communication.registry import register_node
 from server.leader_service import LeaderService
 
 @dataclass # This help automatically generates the special boilerplate method like __init__(),__repr__()
@@ -50,6 +48,7 @@ if __name__ == "__main__":
     parser.add_argument("--port",type=int,required=True)
     parser.add_argument("--region",type=str,required=True)
     parser.add_argument("--latency",type=int,required=True)
+    parser.add_argument("--client_id",type=int,required=True)
     args = parser.parse_args()
 
     node = Node(
@@ -73,21 +72,19 @@ if __name__ == "__main__":
     )
     discovery.start()
 
-    print("Waiting for peer discovery")
-    time.sleep(5)
+    print(f"[NODE] Waiting for peer discovery (10s)...")
+    time.sleep(10)
 
     self_address = f"{node.ip}:{node.port}"
     peers = peer_table.list_peer()
     partner_addresses = [
-        f"{peer.ip}:{peer.port}" 
-        for peer in peers 
-        if peer.cluster_id == node.cluster_id 
+        f"{peer.ip}:{peer.port}"
+        for peer in peers
+        if peer.cluster_id == node.cluster_id
         and peer.node_id != node.node_id
     ]
 
-    print("="*20)
-    print(f"My Raft peers:{partner_addresses}")
-    print("="*20)
+    print(f"[NODE] Raft peers found: {partner_addresses}")
 
     consensus = ClusterConsensus(
         self_address=self_address,
@@ -95,42 +92,69 @@ if __name__ == "__main__":
         node = node
     )
 
+    print(f"[NODE] Waiting for Raft cluster to stabilize...")
+    for _ in range(30):
+        if consensus._isReady():
+            break
+        time.sleep(1)
+    print(f"[NODE] Raft cluster ready | node={node.node_id[:8]}")
+
     leader_service_started = False
     client_started = False
+    client_thread = None
     client = None
+    previous_state = None
 
     while True:
         consensus.update_role()
-        print(f"Node state:{node.consensus_state}")
 
-        if node.consensus_state == "leader" and not leader_service_started:
-            leader_service = LeaderService(
-                node = node,
-                peer_table = peer_table
-            )
+        if node.consensus_state != previous_state:
+            print(f"[NODE] Role change: {previous_state} -> {node.consensus_state} | node={node.node_id[:8]}")
+            register_node(node)
+            previous_state = node.consensus_state
 
-            import uvicorn
-            import threading
+        if node.consensus_state == "leader":
+            # Stop client if promoted
+            if client_started:
+                client_started = False
+                client_thread = None
+                client = None
+                print(f"[NODE] Training client stopped (node promoted to leader)")
 
-            threading.Thread(
-                target = lambda:uvicorn.run(
-                    leader_service.app,
-                    host="0.0.0.0",
-                    port = node.api_port #+1000
-                ),
-                daemon=True
-            ).start()
-            leader_service_started = True
-            print("Leader service started")
+            # Start leader service if not running
+            if not leader_service_started:
+                leader_service = LeaderService(
+                    node = node,
+                    peer_table=peer_table
+                )
+                threading.Thread(
+                    target=lambda:uvicorn.run(
+                        leader_service.app,
+                        host="0.0.0.0",
+                        port=node.api_port
+                    ),
+                    daemon=True
+                ).start()
+                leader_service_started=True
+                print(f"[NODE] Leader service started on port {node.api_port}")
 
-        elif node.consensus_state == "follower" and not client_started:
-            client = FederatedClient(
-                client_id=0,
-                node=node,
-                peer_table=peer_table,
-                consensus = consensus
-            )
-            client_started = True
-            print("client Initialized")
-        
+        elif node.consensus_state == "follower":
+            thread_dead = client_thread is not None and not client_thread.is_alive()
+            if not client_started or thread_dead:
+                if thread_dead:
+                    print(f"[NODE] Training thread died unexpectedly, restarting...")
+                client = FederatedClient(
+                    client_id=args.client_id,
+                    node=node,
+                    peer_table=peer_table,
+                    consensus=consensus
+                )
+                client_thread = threading.Thread(
+                    target=client.run,
+                    daemon=True
+                )
+                client_thread.start()
+                client_started=True
+                print(f"[NODE] Training client started | node={node.node_id[:8]} | cluster={node.cluster_id}")
+
         time.sleep(2)

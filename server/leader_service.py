@@ -1,10 +1,8 @@
 from fastapi import FastAPI
-from communication.model_sync import ModelSync
 from server.coordinator import (
     FederatedCoordinator
 )
 
-SERVER_URL = ("http://127.0.0.1:8000")
 class LeaderService:
 
     def __init__(
@@ -14,14 +12,12 @@ class LeaderService:
     ):
         self.node = node
         self.peer_table = peer_table
-        self.global_weights = ModelSync.download_model(SERVER_URL)
-
-        self.coordinator = (FederatedCoordinator())
-        self.coordinator.set_global_weights(self.global_weights)
+        self.coordinator = FederatedCoordinator()
+        print(f"[LEADER SERVICE] Initialized with fresh global model | node={node.node_id[:8]}")
 
         self.app = FastAPI()
         self.setup_routes()
-    
+
     def setup_routes(self):
         @self.app.get("/")
         def root():
@@ -29,7 +25,7 @@ class LeaderService:
                 "message":"Leader Running",
                 "node_id":self.node.node_id,
                 "cluster_id":self.node.cluster_id,
-                "role":self.node.role
+                "role":self.node.consensus_state
             }
         
         @self.app.get("/get_model")

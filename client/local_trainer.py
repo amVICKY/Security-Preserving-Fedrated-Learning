@@ -12,7 +12,8 @@ def local_train(model,train_loader,test_loader,device,local_epochs):
         model.parameters(),
         lr=0.001
     )
-    for epochs in range(local_epochs):
+    for epoch in range(local_epochs):
+        print(f"[TRAINER] Epoch {epoch + 1}/{local_epochs}")
         train_loss, train_acc = train(
             model,
             train_loader,
@@ -20,6 +21,7 @@ def local_train(model,train_loader,test_loader,device,local_epochs):
             optimizer,
             device
         )
+        print(f"[TRAINER] Epoch {epoch + 1} done | loss={train_loss:.4f} | acc={train_acc:.4f}")
         
     test_loss,test_acc = evaluate(
         model,

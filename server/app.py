@@ -1,15 +1,21 @@
+import torch
+from torch import nn
 from fastapi import FastAPI
-from server.coordinator import (
-    FederatedCoordinator
-)
-from communication.protocol import (
-    PROTOCOL_VERSION
-)
+from server.coordinator import FederatedCoordinator
+from communication.serialization import deserialize_weights
+from communication.protocol import PROTOCOL_VERSION
+from evalution.evaluate import evaluate_model
+from data.dataset import get_dataloaders
+from utils.config import load_config
 
 app = FastAPI()
 coordinator = FederatedCoordinator()
-cluster_updates = []
 registered_nodes = {}
+
+_config = load_config()
+_device = "cuda" if torch.cuda.is_available() else "cpu"
+_, _test_loader = get_dataloaders(_config)
+_criterion = nn.CrossEntropyLoss()
 
 @app.get("/")
 def root():
@@ -46,22 +52,24 @@ def aggregate_updates():
     return coordinator.aggregate_updates()
 
 @app.post("/cluster_update")
-def cluster_update(update:dict):
+def cluster_update(update: dict):
+    if update.get("protocol_version") != PROTOCOL_VERSION:
+        print(f"[APP] Protocol mismatch: received={update.get('protocol_version')} | expected={PROTOCOL_VERSION}")
+        return {"status": "protocol mismatch"}
 
-    version = update.get("protocol_version")
-    if version != PROTOCOL_VERSION:
-        print(f"Protocol mismatch: received={version} | expected={PROTOCOL_VERSION}")
-        return {
-            "status":"protocol mismatch"
-        }
+    weights = deserialize_weights(update["weights"])
+    coordinator.set_global_weights(weights)
 
-    global cluster_updates
-    cluster_updates.append(update)
-    print(f"Received cluster update ({len(cluster_updates)})")
+    model = coordinator.model_manager.get_model().to(_device)
+    metrics = evaluate_model(model, _test_loader, _criterion, _device)
+
+    print(f"\n[GLOBAL INFERENCE] ========== Round Complete ==========")
+    print(f"[GLOBAL INFERENCE] Test Accuracy : {metrics['accuracy']:.2f}%")
+    print(f"[GLOBAL INFERENCE] Test Loss     : {metrics['loss']:.4f}")
+    print(f"[GLOBAL INFERENCE] =====================================\n")
+
     return {
-        "status":"received"
+        "status": "inference complete",
+        "test_accuracy": metrics["accuracy"],
+        "test_loss": metrics["loss"]
     }
-
-@app.get("/registered_updates")
-def get_registered_updates():
-    return cluster_updates

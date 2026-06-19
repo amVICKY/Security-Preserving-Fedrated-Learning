@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 
 from .model_manager import ModelManger
 from communication.serialization import (
@@ -10,8 +9,6 @@ from communication.serialization import (
 from server.aggregator import federated_averaging
 from utils.config import load_config
 from communication.delta import apply_delta
-from evalution.evaluate import evaluate_model
-from data.dataset import get_dataloaders
 
 from communication.model_sync import ModelSync
 from communication.protocol import (
@@ -19,6 +16,7 @@ from communication.protocol import (
 )
 
 GLOBAL_SERVER_URL = "http://127.0.0.1:8000"
+
 class FederatedCoordinator:
     
     def __init__(self):
@@ -27,9 +25,6 @@ class FederatedCoordinator:
         self.config = load_config()
         
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
-        self.train_loader,self.test_loader = (get_dataloaders(self.config))
-
-        self.criterion = (nn.CrossEntropyLoss())
         self.num_clients = (self.config["federated"]["num_clients"])
 
     def get_model(self):
@@ -45,12 +40,6 @@ class FederatedCoordinator:
     def set_global_weights(self,weights):
         self.model_manager.set_weights(weights)
 
-    def send_cluster_update(self,averaged_delta):
-        try:
-            reponse = ModelSync.upload_cluster_update(GLOBAL_SERVER_URL,averaged_delta)
-        except Exception as e:
-            print(f"Unable to send cluster update:{e}")
-
     def receive_update(self,update:dict):
 
         if(update["protocol_version"] != PROTOCOL_VERSION):
@@ -63,30 +52,22 @@ class FederatedCoordinator:
         print(f"\nReceived updates {len(self.client_updates)}/{self.num_clients}")
         
         if len(self.client_updates) >= self.num_clients:
-            print("Aggregating global model")
-            
-            global_weights = (self.model_manager.get_weights())
-            averaged_delta = (federated_averaging(self.client_updates))
-            self.send_cluster_update(averaged_delta)
-            updated_weights = (apply_delta(global_weights,averaged_delta))
+            print(f"\n[COORDINATOR] All {self.num_clients} updates received — aggregating")
 
+            global_weights = self.model_manager.get_weights()
+            averaged_delta = federated_averaging(self.client_updates)
+            updated_weights = apply_delta(global_weights, averaged_delta)
             self.model_manager.set_weights(updated_weights)
 
-            global_model = (self.model_manager.get_model().to(self.device))
-            metrics = evaluate_model(
-                self.model_manager.get_model(),
-                self.test_loader,
-                self.criterion,
-                self.device
-            )
-
-            print(f"Global Loss:{metrics['loss']}")
             self.client_updates = []
-            print("Global model Updated")
-            
-            return {
-                "status":"aggregation completed"
-            }
+            print(f"[COORDINATOR] Global model updated — sending to app.py for inference")
+
+            try:
+                ModelSync.upload_cluster_update(GLOBAL_SERVER_URL, updated_weights)
+            except Exception as e:
+                print(f"[COORDINATOR] app.py unreachable, skipping global inference: {e}")
+
+            return {"status": "aggregation completed"}
         
         return {
             "status":f"Waiting for more clients| Client Updated:{len(self.client_updates)}| Client Remain:{self.num_clients-len(self.client_updates)}| Client Total:{self.num_clients}"

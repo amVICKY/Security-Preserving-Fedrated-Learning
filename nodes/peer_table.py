@@ -2,17 +2,20 @@ from datetime import datetime
 # from .node import Node
 
 class PeerTable:
-    
+
     def __init__(self):
         self.peers = {}
 
     def add_peer(self,node):
         self.peers[node.node_id] = node
-    
-    def update_peer(self,node_id):
+
+    def update_peer(self, node_id, consensus_state=None):
         if node_id in self.peers:
-            # self.peers[node_id].last_seen = datetime.now()
             self.peers[node_id].update_last_seen()
+            if consensus_state is not None and self.peers[node_id].consensus_state != consensus_state:
+                old = self.peers[node_id].consensus_state
+                self.peers[node_id].consensus_state = consensus_state
+                print(f"[PEER TABLE] {node_id[:8]} state changed: {old} -> {consensus_state}")
 
     def remove_peer(self,node_id):
         if node_id in self.peers:
@@ -29,6 +32,6 @@ class PeerTable:
     
     def get_cluster_leader(self,cluster_id):
         for peer in self.peers.values():
-            if (peer.cluster_id == cluster_id and peer.role == "leader"):
+            if (peer.cluster_id == cluster_id and peer.consensus_state == "leader"):
                 return peer
         return None
