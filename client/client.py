@@ -31,6 +31,7 @@ class FederatedClient:
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
         self.lamport = LamportClock()
         self.vector_clock = VectorClock(node.node_id)
+        self.base_version = 0  # global model version this round was trained from
 
     def get_leader_url(self):
         leader_id = self.consensus.get_leader()
@@ -55,7 +56,8 @@ class FederatedClient:
         if self.node.consensus_state != "follower":
             return
         print(f"[CLIENT] Downloading global model from leader...")
-        global_weights = (ModelSync.download_model(self.resolve_target_url()))
+        global_weights, self.base_version = ModelSync.download_model(self.resolve_target_url())
+        print(f"[CLIENT] Downloaded global model | base_version={self.base_version}")
 
         model = CNN(num_classes=10).to(self.device)
         model.load_state_dict(global_weights)
@@ -63,7 +65,8 @@ class FederatedClient:
 
         train_loader, test_loader = (get_dataloaders(self.config))
         train_dataset = train_loader.dataset
-        num_clients = self.config["federated"]["num_clients"]
+        # Per-cluster worker count from the CLI (--num_workers); falls back to config.
+        num_clients = self.node.num_workers or self.config["federated"]["num_clients"]
 
         partitions = create_non_iid_partition(train_dataset, num_clients)
 
@@ -89,16 +92,53 @@ class FederatedClient:
 
         ts = self.lamport.tick()
         vc = self.vector_clock.tick()
-        print(f"[CLIENT] Uploading update to leader | lamport_ts={ts} | vc={vc}")
+        print(f"[CLIENT] Uploading update to leader | lamport_ts={ts} | base_version={self.base_version} | vc={vc}")
 
         response = ModelSync.upload_update(
             self.resolve_target_url(),
             delta,
             node_id=self.node.node_id,
             lamport_ts=ts,
-            vector_clock=vc
+            vector_clock=vc,
+            base_version=self.base_version
         )
         print(f"[CLIENT] Upload response: {response}")
+
+        # Causal lockstep (option 2): don't start the next round until the global
+        # model's vector clock confirms THIS node's contribution (lamport_ts=ts) has
+        # been aggregated. Guarantees the next download is the latest merged model,
+        # so we never train on a stale pre-aggregation base and never get rejected.
+        status = response.get("status", "")
+        if "rejected" in status or "duplicate" in status:
+            print(f"[CLIENT] Update not merged ({status}) — re-syncing on next download")
+        else:
+            self.wait_for_merge(ts)
+
+    def wait_for_merge(self, my_ts):
+        """Poll the leader's model vector clock until it has merged our lamport_ts."""
+        timeout = self.config["async_training"]["window_seconds"] * 2 + 5
+        deadline = time.time() + timeout
+        my_id = self.node.node_id
+
+        while time.time() < deadline:
+            target_url = self.resolve_target_url()
+            if target_url is None:
+                time.sleep(1)
+                continue
+            try:
+                version, model_vc = ModelSync.get_model_status(target_url)
+            except Exception:
+                time.sleep(1)
+                continue
+
+            merged_ts = model_vc.get(my_id, 0)
+            if merged_ts >= my_ts:
+                print(f"[CLIENT] Contribution merged | my_ts={my_ts} | model_version={version} | vc_self={merged_ts}")
+                return
+            print(f"[CLIENT] Waiting for merge | my_ts={my_ts} | vc_self={merged_ts} | model_version={version}")
+            time.sleep(1)
+
+        print(f"[CLIENT] Merge wait timed out after {timeout}s — proceeding with latest model")
 
     def run(self):
         num_rounds = self.config["federated"]["num_rounds"]

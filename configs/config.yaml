@@ -23,6 +23,11 @@ paths:
 
 federated:
   num_clients: 2
-  num_rounds: 5
+  num_rounds: 10
   local_epochs: 2
-  
+
+async_training:
+  min_updates: 1
+  window_seconds: 15
+  consistency_model: "eventual"
+  max_staleness: 0   # drop updates staler than this; 0 = only base-consistent deltas aggregate

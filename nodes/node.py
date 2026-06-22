@@ -28,6 +28,7 @@ class Node:
     region:Optional[str] = None
     simulated_latency:Optional[int] = None
     consensus_state:Optional[str] = None
+    num_workers:Optional[int] = None   # training workers this cluster expects (set per-cluster at launch)
 
 
     def update_last_seen(self):
@@ -49,6 +50,8 @@ if __name__ == "__main__":
     parser.add_argument("--region",type=str,required=True)
     parser.add_argument("--latency",type=int,required=True)
     parser.add_argument("--client_id",type=int,required=True)
+    parser.add_argument("--num_workers",type=int,default=None,
+                        help="number of training workers in this cluster (falls back to config if omitted)")
     args = parser.parse_args()
 
     node = Node(
@@ -62,7 +65,8 @@ if __name__ == "__main__":
 
         region=args.region,
         simulated_latency=args.latency,
-        consensus_state="follower"
+        consensus_state="follower",
+        num_workers=args.num_workers
     )
     register_node(node)
     peer_table = PeerTable()

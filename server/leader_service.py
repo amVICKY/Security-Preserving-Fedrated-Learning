@@ -12,8 +12,14 @@ class LeaderService:
     ):
         self.node = node
         self.peer_table = peer_table
-        self.coordinator = FederatedCoordinator()
-        print(f"[LEADER SERVICE] Initialized with fresh global model | node={node.node_id[:8]}")
+        self.coordinator = FederatedCoordinator(
+            cluster_id=node.cluster_id,
+            num_workers=node.num_workers
+        )
+        print(
+            f"[LEADER SERVICE] Initialized | node={node.node_id[:8]} "
+            f"| cluster={node.cluster_id} | workers={self.coordinator.num_clients}"
+        )
 
         self.app = FastAPI()
         self.setup_routes()
@@ -31,6 +37,10 @@ class LeaderService:
         @self.app.get("/get_model")
         def get_model():
             return self.coordinator.get_model()
+
+        @self.app.get("/model_status")
+        def model_status():
+            return self.coordinator.get_status()
         
         @self.app.post("/send_update")
         def send_update(update:dict):

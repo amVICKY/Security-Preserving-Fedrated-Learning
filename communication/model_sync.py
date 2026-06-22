@@ -15,12 +15,23 @@ class ModelSync:
         payload = response.json()
         if payload["protocol_version"] != PROTOCOL_VERSION:
             raise RuntimeError("Protocol version mismatch")
-        weights = payload["weights"]
+        weights = deserialize_weights(payload["weights"])
+        # Defaults to 0 until the coordinator starts emitting model_version (Step 4)
+        model_version = payload.get("model_version", 0)
 
-        return deserialize_weights(weights)
-    
+        return weights, model_version
+
     @staticmethod
-    def upload_update(url, weights, node_id=None, lamport_ts=None, vector_clock=None):
+    def get_model_status(url):
+        """Cheap poll of (model_version, model_vc) without downloading weights."""
+        response = requests.get(f"{url}/model_status")
+        payload = response.json()
+        if payload["protocol_version"] != PROTOCOL_VERSION:
+            raise RuntimeError("Protocol version mismatch")
+        return payload["model_version"], payload.get("model_vc", {})
+
+    @staticmethod
+    def upload_update(url, weights, node_id=None, lamport_ts=None, vector_clock=None, base_version=None):
         payload = {
             "protocol_version": PROTOCOL_VERSION,
             "weights": serialize_weights(weights),
@@ -31,15 +42,19 @@ class ModelSync:
             payload["lamport_ts"] = lamport_ts
         if vector_clock is not None:
             payload["vector_clock"] = vector_clock
+        if base_version is not None:
+            payload["base_version"] = base_version
         response = requests.post(f"{url}/send_update", json=payload)
         return response.json()
     
     @staticmethod
-    def upload_cluster_update(url,delta):
-        requests.post(
-            f"{url}/cluster_update",
-            json = {
-                "protocol_version":PROTOCOL_VERSION,
-                "weights":serialize_weights(delta)
-            }
-        )
+    def upload_cluster_update(url, delta, cluster_id=None, model_version=None):
+        payload = {
+            "protocol_version": PROTOCOL_VERSION,
+            "weights": serialize_weights(delta),
+        }
+        if cluster_id is not None:
+            payload["cluster_id"] = cluster_id
+        if model_version is not None:
+            payload["model_version"] = model_version
+        requests.post(f"{url}/cluster_update", json=payload)
