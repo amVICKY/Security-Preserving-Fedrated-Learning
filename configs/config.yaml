@@ -22,7 +22,7 @@ paths:
   log_dir: "./logs"
 
 federated:
-  num_clients: 3
+  num_clients: 2
   num_rounds: 5
   local_epochs: 2
   

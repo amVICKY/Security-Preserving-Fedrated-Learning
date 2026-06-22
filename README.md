@@ -8,8 +8,3 @@ A distributed federated learning system with secure aggregation, privacy preserv
 - Distributed Client-Server Architecture
 - Communication Optimization
 - Privacy Preservation
-
-## Tech Stack
-- Python
-- PyTorch
-- FastAPI

@@ -20,14 +20,18 @@ class ModelSync:
         return deserialize_weights(weights)
     
     @staticmethod
-    def upload_update(url,weights):
-        response = requests.post(
-            f"{url}/send_update",
-            json={
-                "protocol_version":PROTOCOL_VERSION,
-                "weights":serialize_weights(weights)
-            }
-        )
+    def upload_update(url, weights, node_id=None, lamport_ts=None, vector_clock=None):
+        payload = {
+            "protocol_version": PROTOCOL_VERSION,
+            "weights": serialize_weights(weights),
+        }
+        if node_id is not None:
+            payload["node_id"] = node_id
+        if lamport_ts is not None:
+            payload["lamport_ts"] = lamport_ts
+        if vector_clock is not None:
+            payload["vector_clock"] = vector_clock
+        response = requests.post(f"{url}/send_update", json=payload)
         return response.json()
     
     @staticmethod

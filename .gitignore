@@ -19,3 +19,6 @@ checkpoints/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Files
+imp_records.md

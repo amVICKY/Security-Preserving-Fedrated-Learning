@@ -11,6 +11,7 @@ from utils.partition import create_non_iid_partition
 from client.local_trainer import local_train
 from communication.delta import compute_delta
 from communication.model_sync import ModelSync
+from communication.clock import LamportClock, VectorClock
 
 
 class FederatedClient:
@@ -28,6 +29,8 @@ class FederatedClient:
         self.consensus = consensus
         self.config = load_config()
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
+        self.lamport = LamportClock()
+        self.vector_clock = VectorClock(node.node_id)
 
     def get_leader_url(self):
         leader_id = self.consensus.get_leader()
@@ -83,9 +86,18 @@ class FederatedClient:
         print(f"[CLIENT] Local training complete | metrics={metrics}")
 
         delta = compute_delta(initial_weights,model.state_dict())
-        print(f"[CLIENT] Uploading update to leader...")
 
-        response = ModelSync.upload_update(self.resolve_target_url(),delta)
+        ts = self.lamport.tick()
+        vc = self.vector_clock.tick()
+        print(f"[CLIENT] Uploading update to leader | lamport_ts={ts} | vc={vc}")
+
+        response = ModelSync.upload_update(
+            self.resolve_target_url(),
+            delta,
+            node_id=self.node.node_id,
+            lamport_ts=ts,
+            vector_clock=vc
+        )
         print(f"[CLIENT] Upload response: {response}")
 
     def run(self):
