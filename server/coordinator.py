@@ -17,6 +17,17 @@ from communication.protocol import (
     PROTOCOL_VERSION
 )
 from communication.clock import LamportClock
+from server.pipeline import (
+    Pipeline,
+    UpdateEvent,
+    ProtocolFilter,
+    ClusterRouter,
+    IdempotencyAppliedFilter,
+    ClockStage,
+    StalenessFilter,
+    IdempotencyInflightFilter,
+    BackupCopier,
+)
 
 GLOBAL_SERVER_URL = "http://127.0.0.1:8000"
 
@@ -49,11 +60,27 @@ class FederatedCoordinator:
         # is baked in before it trains the next round — see client wait_for_merge().
         self.model_vc: dict = {}
         self.lamport = LamportClock()
-        self._seen_updates: set = set()  # (node_id, lamport_ts) pairs seen this window
+        # In-flight idempotency: update_ids currently buffered (not yet aggregated).
+        # The APPLIED-tier idempotency is model_vc itself (highest applied lamport_ts/node),
+        # which is persistent — together they give exactly-once application.
+        self._buffered_ids: set = set()
         self._rejected_this_round = 0    # stale updates dropped since last aggregation (metrics)
 
-        self._lock = threading.Lock()    # guards client_updates, _seen_updates, model_version, model
+        self._lock = threading.Lock()    # guards client_updates, _buffered_ids, model_version, model
         self._timer = None               # active threading.Timer for the current window
+
+        # Event-driven pipeline (pipes-and-filters): an incoming update flows through
+        # protocol -> cluster routing (splitter) -> idempotency -> clock -> staleness
+        # (filters), then survivors hit the merger (_merge_locked -> FedAvg).
+        self.pipeline = Pipeline([
+            ProtocolFilter(),
+            ClusterRouter(),
+            IdempotencyAppliedFilter(),
+            ClockStage(),
+            StalenessFilter(),
+            IdempotencyInflightFilter(),
+            BackupCopier(sink=self._backup_sink),   # last: only copies survivors
+        ])
 
     def get_model(self):
         with self._lock:
@@ -82,81 +109,71 @@ class FederatedCoordinator:
             self.model_manager.set_weights(weights)
 
     def receive_update(self, update: dict):
-
-        if update["protocol_version"] != PROTOCOL_VERSION:
-            return {"status": "protocol mismatch"}
-
+        # Build the event (the "device finished a local epoch" message) and run it
+        # through the filter/splitter pipeline. Survivors reach the merger.
         node_id = update.get("node_id")
         lamport_ts = update.get("lamport_ts", 0)
-        vector_clock = update.get("vector_clock", {})
-        base_version = update.get("base_version", 0)
-
-        # Deserialize outside the lock (CPU-heavy, no shared state touched)
-        weights = deserialize_weights(update["weights"])
+        update_id = update.get("update_id") or (f"{node_id}:{lamport_ts}" if node_id else None)
+        event = UpdateEvent(
+            raw=update,
+            node_id=node_id,
+            cluster_id=update.get("cluster_id"),
+            lamport_ts=lamport_ts,
+            base_version=update.get("base_version", 0),
+            vector_clock=update.get("vector_clock", {}),
+            update_id=update_id,
+        )
 
         updated_weights = None
         status = None
 
-        short_id = node_id[:8] if node_id else "unknown"
-
         with self._lock:
-            # Advance coordinator's Lamport clock
-            local_ts = self.lamport.update(lamport_ts) if lamport_ts else self.lamport.tick()
+            self.pipeline.run(event, self)
+            if event.dropped:
+                short = node_id[:8] if node_id else "unknown"
+                print(f"[COORDINATOR] Dropped update | reason='{event.status}' | node={short} | update_id={update_id}")
+                return {"status": event.status, "update_id": update_id}
 
-            # Concurrent-write detection: staleness = how many versions behind this update is
-            staleness = max(0, self.model_version - base_version)
-
-            # Staleness gate: a delta computed against an old base is invalid against the
-            # current (moved-on) model. Drop it rather than corrupt convergence.
-            if staleness > self.max_staleness:
-                self._rejected_this_round += 1
-                print(
-                    f"[COORDINATOR] Rejected stale update | node={short_id} "
-                    f"| base_version={base_version} | current_version={self.model_version} "
-                    f"| staleness={staleness} > max_staleness={self.max_staleness}"
-                )
-                return {
-                    "status": f"rejected: staleness {staleness} exceeds max {self.max_staleness}"
-                }
-
-            # Dedup: drop retried or replayed updates within this window
-            if node_id:
-                dedup_key = (node_id, lamport_ts)
-                if dedup_key in self._seen_updates:
-                    print(f"[COORDINATOR] Duplicate dropped | node={node_id[:8]} | lamport_ts={lamport_ts}")
-                    return {"status": "duplicate dropped"}
-                self._seen_updates.add(dedup_key)
-
-            self.client_updates.append((lamport_ts, base_version, staleness, node_id, weights))
-
-            print(
-                f"\n[COORDINATOR] Update {len(self.client_updates)} buffered "
-                f"| node={short_id} | lamport_ts={lamport_ts} | local_ts={local_ts} "
-                f"| base_version={base_version} | current_version={self.model_version} "
-                f"| staleness={staleness} | vc={vector_clock}"
-            )
-
-            if len(self.client_updates) >= self.num_clients:
-                # Full batch — no reason to wait, aggregate immediately
-                self._cancel_timer()
-                updated_weights = self._aggregate_locked(reason="full batch")
-                status = "aggregation completed"
-            else:
-                # Partial batch — arm the window timer so stragglers don't deadlock us
-                if len(self.client_updates) >= self.min_updates:
-                    self._arm_timer()
-                pending = len(self.client_updates)
-                remaining = max(0, self.num_clients - pending)
-                status = (
-                    f"Buffered | received={pending} | remaining={remaining} "
-                    f"| total={self.num_clients} | window={self.window_seconds}s"
-                )
+            updated_weights, status = self._merge_locked(event)
 
         # Network I/O happens outside the lock so it never blocks incoming updates
         if updated_weights is not None:
             self._push_global(updated_weights)
 
         return {"status": status}
+
+    def _merge_locked(self, event: UpdateEvent):
+        """Merger stage. MUST hold self._lock. Buffers the survivor update and triggers
+        FedAvg when the full batch arrives. Returns (updated_weights_or_None, status)."""
+        # Deserialize here (only for updates that survived the filters)
+        weights = deserialize_weights(event.raw["weights"])
+        self.client_updates.append(
+            (event.lamport_ts, event.base_version, event.staleness, event.node_id, weights)
+        )
+
+        short_id = event.node_id[:8] if event.node_id else "unknown"
+        print(
+            f"\n[COORDINATOR] Update {len(self.client_updates)} buffered "
+            f"| node={short_id} | lamport_ts={event.lamport_ts} | local_ts={event.local_ts} "
+            f"| base_version={event.base_version} | current_version={self.model_version} "
+            f"| staleness={event.staleness} | vc={event.vector_clock}"
+        )
+
+        if len(self.client_updates) >= self.num_clients:
+            # Full batch — no reason to wait, aggregate immediately
+            self._cancel_timer()
+            return self._aggregate_locked(reason="full batch"), "aggregation completed"
+
+        # Partial batch — arm the window timer so stragglers don't deadlock us
+        if len(self.client_updates) >= self.min_updates:
+            self._arm_timer()
+        pending = len(self.client_updates)
+        remaining = max(0, self.num_clients - pending)
+        status = (
+            f"Buffered | received={pending} | remaining={remaining} "
+            f"| total={self.num_clients} | window={self.window_seconds}s"
+        )
+        return None, status
 
     def _on_window_timeout(self):
         """Timer callback: aggregate whatever arrived, dropping stragglers."""
@@ -204,9 +221,10 @@ class FederatedCoordinator:
             f"| staleness_weights={rounded} | model_vc={vc_short}"
         )
 
-        # Clear window state for the next batch
+        # Clear window state for the next batch. _buffered_ids resets (in-flight tier),
+        # but model_vc persists as the applied-tier high-water-mark for exactly-once.
         self.client_updates = []
-        self._seen_updates.clear()
+        self._buffered_ids.clear()
         self._rejected_this_round = 0
         return updated_weights
 
@@ -222,6 +240,16 @@ class FederatedCoordinator:
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
+
+    def _backup_sink(self, raw_update):
+        """Non-blocking, best-effort copy of an accepted update to the durable backup
+        sink. Fire-and-forget on a daemon thread so the main path is never blocked."""
+        def _send():
+            try:
+                ModelSync.upload_backup(GLOBAL_SERVER_URL, raw_update, cluster_id=self.cluster_id)
+            except Exception:
+                pass  # best-effort
+        threading.Thread(target=_send, daemon=True).start()
 
     def _push_global(self, updated_weights):
         print(f"[COORDINATOR] Global model updated — pushing cluster={self.cluster_id} v{self.model_version} to global aggregator")

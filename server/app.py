@@ -17,6 +17,11 @@ global_aggregator = GlobalAggregator()          # merges per-cluster models (hie
 registered_nodes = {}
 _registry_lock = threading.Lock()  # guards registered_nodes against concurrent /register writes
 
+# Durable backup sink (copier target): recent accepted updates per cluster, bounded.
+backup_log = {}                    # cluster_id -> list[raw_update]
+_backup_lock = threading.Lock()
+BACKUP_MAX = 50
+
 _config = load_config()
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 _, _test_loader = get_dataloaders(_config)
@@ -51,6 +56,25 @@ def register_node(node_info:dict):
 def get_registered_nodes():
     with _registry_lock:
         return dict(registered_nodes)
+
+@app.post("/backup_update")
+def backup_update(update: dict):
+    # Copier target: store a copy of an accepted update so a leader crash mid-window
+    # doesn't lose in-flight updates. Bounded ring per cluster.
+    cluster_id = update.get("cluster_id", "unknown")
+    with _backup_lock:
+        buf = backup_log.setdefault(cluster_id, [])
+        buf.append(update)
+        if len(buf) > BACKUP_MAX:
+            del buf[:len(buf) - BACKUP_MAX]
+        depth = len(buf)
+    return {"status": "backed up", "cluster_id": cluster_id, "depth": depth}
+
+@app.get("/backup_log")
+def get_backup_log():
+    # Shallow view (counts only, not the weights) for inspection.
+    with _backup_lock:
+        return {cid: len(buf) for cid, buf in backup_log.items()}
 
 
 @app.post("/aggregate")

@@ -92,7 +92,10 @@ class FederatedClient:
 
         ts = self.lamport.tick()
         vc = self.vector_clock.tick()
-        print(f"[CLIENT] Uploading update to leader | lamport_ts={ts} | base_version={self.base_version} | vc={vc}")
+        # Idempotency key for exactly-once: derived from the logical clock so a retried
+        # upload of THIS update carries the same id and is deduped at the aggregator.
+        update_id = f"{self.node.node_id}:{ts}"
+        print(f"[CLIENT] Uploading update to leader | update_id={update_id} | base_version={self.base_version} | vc={vc}")
 
         response = ModelSync.upload_update(
             self.resolve_target_url(),
@@ -100,7 +103,9 @@ class FederatedClient:
             node_id=self.node.node_id,
             lamport_ts=ts,
             vector_clock=vc,
-            base_version=self.base_version
+            base_version=self.base_version,
+            update_id=update_id,
+            cluster_id=self.node.cluster_id
         )
         print(f"[CLIENT] Upload response: {response}")
 
