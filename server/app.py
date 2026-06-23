@@ -5,7 +5,7 @@ from torch import nn
 from fastapi import FastAPI
 from server.coordinator import FederatedCoordinator
 from server.global_aggregator import GlobalAggregator
-from communication.serialization import deserialize_weights
+from communication.serialization import deserialize_weights, serialize_weights
 from communication.protocol import PROTOCOL_VERSION
 from evalution.evaluate import evaluate_model
 from data.dataset import get_dataloaders
@@ -87,5 +87,8 @@ def cluster_update(update: dict):
         "global_version": info["global_version"],
         "num_clusters": info["num_clusters"],
         "test_accuracy": metrics["accuracy"],
-        "test_loss": metrics["loss"]
+        "test_loss": metrics["loss"],
+        # Feedback loop: hand the merged global model back so the cluster can re-sync
+        # to it and stay in the same basin as the other clusters (prevents drift).
+        "global_weights": serialize_weights(global_weights)
     }

@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from server.coordinator import (
-    FederatedCoordinator
+    FederatedCoordinator,
+    GLOBAL_SERVER_URL
 )
+from communication.model_sync import ModelSync
 
 class LeaderService:
 
@@ -16,10 +18,25 @@ class LeaderService:
             cluster_id=node.cluster_id,
             num_workers=node.num_workers
         )
-        print(
-            f"[LEADER SERVICE] Initialized | node={node.node_id[:8]} "
-            f"| cluster={node.cluster_id} | workers={self.coordinator.num_clients}"
-        )
+
+        # Shared initialization: pull the canonical model from the global server so
+        # EVERY cluster starts in the same weight-space basin. Cross-cluster FedAvg
+        # only produces a meaningful average when the clusters' weights are aligned;
+        # independent random inits land in different basins and average to mush.
+        try:
+            global_weights, global_version = ModelSync.download_model(GLOBAL_SERVER_URL)
+            self.coordinator.set_global_weights(global_weights)
+            print(
+                f"[LEADER SERVICE] Initialized from GLOBAL model (v{global_version}) "
+                f"| node={node.node_id[:8]} | cluster={node.cluster_id} "
+                f"| workers={self.coordinator.num_clients}"
+            )
+        except Exception as e:
+            print(
+                f"[LEADER SERVICE] Could not fetch global init ({e}); using local random init "
+                f"| node={node.node_id[:8]} | cluster={node.cluster_id} "
+                f"| workers={self.coordinator.num_clients}"
+            )
 
         self.app = FastAPI()
         self.setup_routes()

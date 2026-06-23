@@ -226,14 +226,21 @@ class FederatedCoordinator:
     def _push_global(self, updated_weights):
         print(f"[COORDINATOR] Global model updated — pushing cluster={self.cluster_id} v{self.model_version} to global aggregator")
         try:
-            ModelSync.upload_cluster_update(
+            result = ModelSync.upload_cluster_update(
                 GLOBAL_SERVER_URL,
                 updated_weights,
                 cluster_id=self.cluster_id,
                 model_version=self.model_version
             )
+            # Feedback loop: adopt the merged global model so this cluster re-syncs
+            # toward the other clusters and stays in the shared weight-space basin.
+            global_weights = result.get("global_weights") if isinstance(result, dict) else None
+            if global_weights is not None:
+                self.set_global_weights(global_weights)
+                gv = result.get("global_version")
+                print(f"[COORDINATOR] Re-synced to global model (global_version={gv}, clusters={result.get('num_clusters')})")
         except Exception as e:
-            print(f"[COORDINATOR] app.py unreachable, skipping global inference: {e}")
+            print(f"[COORDINATOR] app.py unreachable, skipping global sync: {e}")
 
     def aggregate_updates(self):
         """Manual aggregation trigger (POST /aggregate). Aggregates whatever is buffered."""

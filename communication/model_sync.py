@@ -57,4 +57,9 @@ class ModelSync:
             payload["cluster_id"] = cluster_id
         if model_version is not None:
             payload["model_version"] = model_version
-        requests.post(f"{url}/cluster_update", json=payload)
+        response = requests.post(f"{url}/cluster_update", json=payload)
+        result = response.json()
+        # Feedback loop: parse the merged global model the server hands back (if any).
+        if "global_weights" in result:
+            result["global_weights"] = deserialize_weights(result["global_weights"])
+        return result
