@@ -23,7 +23,7 @@ paths:
 
 federated:
   num_clients: 2
-  num_rounds: 10
+  num_rounds: 20  # 10
   local_epochs: 2
 
 async_training:

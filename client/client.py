@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import torch
 from models.cnn import CNN
 from data.dataset import (
@@ -145,6 +146,13 @@ class FederatedClient:
 
         print(f"[CLIENT] Merge wait timed out after {timeout}s — proceeding with latest model")
 
+    def _retry_delay(self, attempt, base=2.0, cap=20.0):
+        """Exponential backoff with EQUAL jitter. Equal (not full) jitter keeps a floor
+        so the retry loop never busy-spins, while still decorrelating synchronized
+        workers so they don't all hammer a recovering leader at the same instant."""
+        target = min(cap, base * (2 ** attempt))
+        return target / 2 + random.uniform(0, target / 2)
+
     def run(self):
         num_rounds = self.config["federated"]["num_rounds"]
         local_epochs = self.config["federated"]["local_epochs"]
@@ -152,19 +160,25 @@ class FederatedClient:
         print(f"[CLIENT] Training plan: {num_rounds} rounds x {local_epochs} epochs each")
 
         round_num = 0
+        backoff_n = 0   # consecutive failures, drives jittered backoff
         while self.node.consensus_state == "follower" and round_num < num_rounds:
             target_url = self.resolve_target_url()
             if target_url is None:
-                print(f"[CLIENT] No leader found for cluster={self.node.cluster_id}, retrying in 3s...")
-                time.sleep(3)
+                delay = self._retry_delay(backoff_n)
+                backoff_n += 1
+                print(f"[CLIENT] No leader found for cluster={self.node.cluster_id}, retrying in {delay:.1f}s...")
+                time.sleep(delay)
                 continue
             print(f"[CLIENT] --- Round {round_num + 1}/{num_rounds} | leader={target_url} ---")
             try:
                 self.train_round()
                 round_num += 1
+                backoff_n = 0   # success resets the backoff
             except Exception as e:
-                print(f"[CLIENT] Round {round_num + 1} failed: {e}, retrying in 3s...")
-                time.sleep(3)
+                delay = self._retry_delay(backoff_n)
+                backoff_n += 1
+                print(f"[CLIENT] Round {round_num + 1} failed: {e}, retrying in {delay:.1f}s...")
+                time.sleep(delay)
 
         if round_num >= num_rounds:
             print(f"[CLIENT] All {num_rounds} rounds complete | node={self.node.node_id[:8]}")

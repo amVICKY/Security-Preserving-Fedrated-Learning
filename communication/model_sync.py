@@ -1,4 +1,3 @@
-import requests
 from communication.serialization import (
     deserialize_weights,
     serialize_weights
@@ -6,12 +5,13 @@ from communication.serialization import (
 from communication.protocol import  (
     PROTOCOL_VERSION
 )
+from communication.resiliency import resilient_request
 
 class ModelSync:
-    
+
     @staticmethod
     def download_model(url):
-        response = requests.get(f"{url}/get_model")
+        response = resilient_request("GET", f"{url}/get_model")
         payload = response.json()
         if payload["protocol_version"] != PROTOCOL_VERSION:
             raise RuntimeError("Protocol version mismatch")
@@ -27,12 +27,14 @@ class ModelSync:
         payload = dict(raw_update)
         if cluster_id is not None:
             payload.setdefault("cluster_id", cluster_id)
-        requests.post(f"{url}/backup_update", json=payload, timeout=2)
+        # Best-effort: short timeout, single attempt — must never delay the main path.
+        resilient_request("POST", f"{url}/backup_update", json=payload, timeout=2, max_retries=1)
 
     @staticmethod
     def get_model_status(url):
         """Cheap poll of (model_version, model_vc) without downloading weights."""
-        response = requests.get(f"{url}/model_status")
+        # Polled in a loop (wait_for_merge), so keep retries low.
+        response = resilient_request("GET", f"{url}/model_status", max_retries=1)
         payload = response.json()
         if payload["protocol_version"] != PROTOCOL_VERSION:
             raise RuntimeError("Protocol version mismatch")
@@ -56,7 +58,8 @@ class ModelSync:
             payload["base_version"] = base_version
         if update_id is not None:
             payload["update_id"] = update_id
-        response = requests.post(f"{url}/send_update", json=payload)
+        # Safe to retry: deduped by update_id at the aggregator (exactly-once).
+        response = resilient_request("POST", f"{url}/send_update", json=payload)
         return response.json()
     
     @staticmethod
@@ -69,7 +72,8 @@ class ModelSync:
             payload["cluster_id"] = cluster_id
         if model_version is not None:
             payload["model_version"] = model_version
-        response = requests.post(f"{url}/cluster_update", json=payload)
+        # Safe to retry: per-cluster slot is last-write-wins (idempotent).
+        response = resilient_request("POST", f"{url}/cluster_update", json=payload)
         result = response.json()
         # Feedback loop: parse the merged global model the server hands back (if any).
         if "global_weights" in result:

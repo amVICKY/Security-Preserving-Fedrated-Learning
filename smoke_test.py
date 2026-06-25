@@ -115,6 +115,19 @@ g, info = ga.receive_cluster_update("cluster2", B, 1)
 check("2 clusters -> FedAvg merge", g["w"].tolist() == [10.0, 5.0])
 check("tracks per-cluster versions", info["cluster_versions"] == {"cluster1": 1, "cluster2": 1})
 
+print("\n== resiliency (circuit breaker) ==")
+import time as _time
+from communication.resiliency import CircuitBreaker
+cb = CircuitBreaker(failure_threshold=3, reset_timeout=0.3)
+check("breaker starts closed", cb.state == "closed")
+for _ in range(3):
+    cb.record_failure()
+check("breaker opens after threshold failures", cb.state == "open")
+_time.sleep(0.35)
+check("breaker half-opens after cooldown", cb.state == "half-open")
+cb.record_success()
+check("breaker closes on success", cb.state == "closed")
+
 passed = sum(_results)
 total = len(_results)
 print(f"\n{'='*40}\n{passed}/{total} checks passed")
