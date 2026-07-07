@@ -14,6 +14,7 @@ from .consensus import ClusterConsensus
 from client.client import FederatedClient
 from communication.registry import register_node
 from server.leader_service import LeaderService
+from utils.env import node_host, api_port as resolve_api_port
 
 @dataclass # This help automatically generates the special boilerplate method like __init__(),__repr__()
 class Node:
@@ -56,9 +57,9 @@ if __name__ == "__main__":
 
     node = Node(
         node_id=str(uuid.uuid4()),
-        ip="127.0.0.1",
+        ip=node_host(),                       # advertised address (loopback default; DNS name in Docker/k8s)
         port=args.port,
-        api_port=args.port + 1000,
+        api_port=resolve_api_port(args.port), # raft_port + 1000 by default; API_PORT env overrides
         last_seen=datetime.now(),
 
         cluster_id=args.cluster_id,

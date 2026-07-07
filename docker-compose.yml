@@ -1,0 +1,83 @@
+# Federated-learning swarm, containerized as the foundation for Kubernetes.
+#
+# Topology (maps 1:1 onto k8s later):
+#   global-server            -> a Deployment + Service          (the coordinator)
+#   cluster1-node{1,2,3}     -> a StatefulSet + headless Service (one Raft cluster)
+#
+# Why this shape:
+#   * Each node advertises its own DNS name (NODE_HOST = service name), so there is
+#     no 127.0.0.1 and no UDP broadcast. Peers are learned by polling the global
+#     server's /registered_nodes (DISCOVERY_MODE=registry) — identical logic in k8s.
+#   * Because each container owns its IP, every node can use the SAME raft/api ports
+#     (4001 / 5001). In k8s the StatefulSet pods do exactly the same.
+#
+# Run:  docker compose up --build
+# Stop: docker compose down
+
+# Shared config for the three cluster1 nodes (YAML anchor to avoid repetition).
+x-node-common: &node-common
+  image: secure-fl:latest
+  depends_on:
+    global-server:
+      condition: service_healthy
+  networks: [flnet]
+  restart: on-failure
+
+x-node-env: &node-env
+  GLOBAL_SERVER_URL: http://global-server:8000
+  DISCOVERY_MODE: registry
+  REGISTRY_POLL_INTERVAL: "2"   # poll fast so Raft peers are all known within the 10s startup window
+  API_PORT: "5001"              # fixed HTTP port for the LeaderService (same on every pod)
+
+services:
+  global-server:
+    build: .
+    image: secure-fl:latest
+    container_name: global-server
+    environment:
+      REGISTRY_TTL: "20"        # enable liveness pruning so a dead leader stops being advertised
+    ports:
+      - "8000:8000"             # published to the host so the dashboard can reach it
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [flnet]
+
+  cluster1-node1:
+    <<: *node-common
+    container_name: cluster1-node1
+    environment:
+      <<: *node-env
+      NODE_HOST: cluster1-node1
+    command: ["python", "-m", "nodes.node",
+              "--cluster_id", "cluster1", "--port", "4001",
+              "--region", "us-east", "--latency", "10",
+              "--client_id", "1", "--num_workers", "2"]
+
+  cluster1-node2:
+    <<: *node-common
+    container_name: cluster1-node2
+    environment:
+      <<: *node-env
+      NODE_HOST: cluster1-node2
+    command: ["python", "-m", "nodes.node",
+              "--cluster_id", "cluster1", "--port", "4001",
+              "--region", "us-east", "--latency", "20",
+              "--client_id", "2", "--num_workers", "2"]
+
+  cluster1-node3:
+    <<: *node-common
+    container_name: cluster1-node3
+    environment:
+      <<: *node-env
+      NODE_HOST: cluster1-node3
+    command: ["python", "-m", "nodes.node",
+              "--cluster_id", "cluster1", "--port", "4001",
+              "--region", "us-east", "--latency", "30",
+              "--client_id", "3", "--num_workers", "2"]
+
+networks:
+  flnet:
+    driver: bridge

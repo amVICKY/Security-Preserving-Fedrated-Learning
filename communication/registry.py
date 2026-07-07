@@ -1,8 +1,9 @@
 import requests
 
-SERVER_URL = "http://127.0.0.1:8000"
+from utils.env import global_server_url
 
 def register_node(node):
+    SERVER_URL = global_server_url()
     payload = {
         "node_id":node.node_id,
         "ip":node.ip,

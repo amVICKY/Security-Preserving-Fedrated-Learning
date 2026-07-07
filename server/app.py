@@ -1,4 +1,6 @@
+import os
 import threading
+import time
 
 import torch
 from torch import nn
@@ -15,7 +17,14 @@ app = FastAPI()
 coordinator = FederatedCoordinator()           # holds the merged global model + does inference
 global_aggregator = GlobalAggregator()          # merges per-cluster models (hierarchical FL)
 registered_nodes = {}
+_registry_last_seen = {}            # node_id -> monotonic timestamp of last /register (heartbeat)
 _registry_lock = threading.Lock()  # guards registered_nodes against concurrent /register writes
+# A node re-registers on every discovery poll (see DiscoveryService.registry_heartbeat),
+# so entries not refreshed within this TTL are treated as dead and pruned. This is what
+# makes a crashed leader stop being advertised as "leader" in registry-discovery mode.
+# Default 0 = pruning DISABLED, so loopback mode (which doesn't heartbeat) is unchanged.
+# docker-compose / k8s set REGISTRY_TTL (e.g. 20) to enable liveness pruning.
+REGISTRY_TTL = float(os.environ.get("REGISTRY_TTL", "0"))
 
 # Durable backup sink (copier target): recent accepted updates per cluster, bounded.
 backup_log = {}                    # cluster_id -> list[raw_update]
@@ -46,6 +55,7 @@ def register_node(node_info:dict):
     node_id = node_info["node_id"]
     with _registry_lock:
         registered_nodes[node_id] = node_info
+        _registry_last_seen[node_id] = time.monotonic()
 
     print(f"Registered node: Node id:{node_id}| Role:{node_info.get('consensus_state')} | Cluster:{node_info.get('cluster_id')}")
     return {
@@ -54,7 +64,16 @@ def register_node(node_info:dict):
 
 @app.get("/registered_nodes")
 def get_registered_nodes():
+    now = time.monotonic()
     with _registry_lock:
+        # Prune entries whose last heartbeat is older than the TTL (dead nodes),
+        # then return the live set. REGISTRY_TTL=0 disables pruning entirely, which
+        # keeps loopback mode (no heartbeat) behaving exactly as before.
+        if REGISTRY_TTL > 0:
+            stale = [nid for nid, ts in _registry_last_seen.items() if now - ts > REGISTRY_TTL]
+            for nid in stale:
+                registered_nodes.pop(nid, None)
+                _registry_last_seen.pop(nid, None)
         return dict(registered_nodes)
 
 @app.post("/backup_update")

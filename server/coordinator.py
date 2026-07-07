@@ -29,7 +29,11 @@ from server.pipeline import (
     BackupCopier,
 )
 
-GLOBAL_SERVER_URL = "http://127.0.0.1:8000"
+from utils.env import global_server_url
+
+# Resolved from GLOBAL_SERVER_URL env var (defaults to localhost:8000 for loopback).
+# leader_service.py imports this name, so keep it as a module-level constant.
+GLOBAL_SERVER_URL = global_server_url()
 
 class FederatedCoordinator:
 
