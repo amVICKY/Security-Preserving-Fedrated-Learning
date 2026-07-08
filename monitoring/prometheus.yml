@@ -1,0 +1,10 @@
+# Prometheus scrapes the global server's /metrics endpoint. The global server is
+# the single source of FL metrics (merged accuracy/loss, model versions, node counts).
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: global-server
+    static_configs:
+      - targets: ["global-server:8000"]   # Docker DNS name of the FastAPI coordinator

@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir torch torchvision \
 
 # Remaining runtime deps (torchaudio from requirements.txt is unused, so skipped).
 RUN pip install --no-cache-dir \
-    numpy pandas pyyaml tqdm fastapi uvicorn matplotlib requests pysyncobj
+    numpy pandas pyyaml tqdm fastapi uvicorn matplotlib requests pysyncobj prometheus_client
 
 # App code. data/MNIST/raw is copied in so torchvision finds it locally and never
 # needs to download at runtime (download=True is a no-op when the files exist).

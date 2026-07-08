@@ -10,5 +10,6 @@ torchvision
 torchaudio
 requests
 pysyncobj
+prometheus_client
 
 # Delete the torch library and install cuda enable version of torch of web if you want gpu aceleration

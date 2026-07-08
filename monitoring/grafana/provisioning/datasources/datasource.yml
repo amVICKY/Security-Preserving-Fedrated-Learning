@@ -1,0 +1,10 @@
+# Auto-provision the Prometheus datasource so Grafana needs zero manual setup.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus               # stable uid so the dashboard JSON can reference it
+    access: proxy
+    url: http://prometheus:9090   # Docker DNS name of the prometheus service
+    isDefault: true
+    editable: true

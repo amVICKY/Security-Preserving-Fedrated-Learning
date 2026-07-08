@@ -4,7 +4,8 @@ import time
 
 import torch
 from torch import nn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from server import metrics as fl_metrics
 from server.coordinator import FederatedCoordinator
 from server.global_aggregator import GlobalAggregator
 from communication.serialization import deserialize_weights, serialize_weights
@@ -41,6 +42,14 @@ def root():
     return{
         "message":"Federated Learning Server Running"
     }
+
+@app.get("/metrics")
+def metrics():
+    # Prometheus scrapes this. Refresh topology gauges from the live registry first.
+    with _registry_lock:
+        fl_metrics.refresh_from_registry(registered_nodes)
+    body, content_type = fl_metrics.render()
+    return Response(content=body, media_type=content_type)
 
 @app.get("/get_model")
 def get_model():
@@ -116,6 +125,14 @@ def cluster_update(update: dict):
 
     model = coordinator.model_manager.get_model().to(_device)
     metrics = evaluate_model(model, _test_loader, _criterion, _device)
+
+    # Export to Prometheus (Grafana reads these via Prometheus).
+    fl_metrics.TEST_ACCURACY.set(metrics["accuracy"])
+    fl_metrics.TEST_LOSS.set(metrics["loss"])
+    fl_metrics.GLOBAL_VERSION.set(info["global_version"])
+    fl_metrics.CLUSTERS_ACTIVE.set(info["num_clusters"])
+    fl_metrics.CLUSTER_VERSION.labels(cluster_id=cluster_id).set(cluster_version)
+    fl_metrics.CLUSTER_UPDATES.labels(cluster_id=cluster_id).inc()
 
     print(f"\n[GLOBAL AGG] cluster={cluster_id} pushed v{cluster_version} "
           f"| merging {info['num_clusters']} cluster(s) {info['cluster_versions']} "
